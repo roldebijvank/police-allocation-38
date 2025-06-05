@@ -1,6 +1,7 @@
 import os
 import json
 
+from flask import request
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
@@ -96,6 +97,17 @@ CONN.close()
 # ─── Dash App Setup ──────────────────────────────────────────────────────────
 app = dash.Dash(__name__)
 server = app.server # for heroku
+
+@server.before_request
+def redirect_to_https():
+    if request.headers.get('X-Forwarded-Proto', 'http') != 'https':
+        url = request.url.replace('http://', 'https://', 1)
+        return '', 301, {'Location': url}
+    
+@server.after_request
+def add_hsts_header(response):
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+    return response
 
 # CSS styles
 SIDEBAR_STYLE = {
