@@ -1,0 +1,6 @@
+dash==3.0.4
+pandas==2.3.0
+plotly==6.0.1
+psycopg2==2.9.10
+Shapely==2.1.1
+gunicorn
