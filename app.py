@@ -95,8 +95,9 @@ server = Flask(__name__)
 app = dash.Dash(
     __name__,
     server=server,
-    routes_pathname_prefix='/police-dashboard/',  # Dash will now live at /dash/
-    requests_pathname_prefix='/police-dashboard/'
+    routes_pathname_prefix='/police-dashboard/',
+    requests_pathname_prefix='/police-dashboard/',
+    suppress_callback_exceptions=True
 )
 
 @server.route("/")
