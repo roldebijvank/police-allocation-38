@@ -104,7 +104,6 @@ function aggregate(rows, maxM) {
   const end = minusMonths(maxM, 3); // e.g. "2025-02"
   const start = minusMonths(end, 11); // 11 months earlier
   const months = [...monthRange(start, end)]; // chronological array
-  console.log("Months:", months);
 
   monthsArr = months; // expose to the charts
 
@@ -140,6 +139,7 @@ function aggregate(rows, maxM) {
     });
 
     londonMean[m] = wardsWithData ? total / wardsWithData : 0;
+    console.log(`London mean for ${m}: ${londonMean[m]}`);
   });
 
   /* 5. (re)draw the UI */
