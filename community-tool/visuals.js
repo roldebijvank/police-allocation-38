@@ -95,6 +95,8 @@ async function loadCrime() {
         lsoa: (r.lsoa_code || "").trim(),
         burg: Number(r.burglary_count ?? r.burglary ?? 0), // ← burglary total in that row
       });
+
+      console.log(`Row: ${ym} | ${r.lsoa_code} | ${r.burglary_count}`);
     });
 
     if (!rows.length)
