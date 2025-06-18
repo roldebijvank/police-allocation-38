@@ -20,7 +20,7 @@ from shapely.geometry import shape
 
 import joblib
 from scipy.stats import entropy
-from Police_dashboard.helper import save_prediction
+from helper import save_prediction
 
 from sqlalchemy import create_engine
 import psycopg2
