@@ -107,9 +107,11 @@ async function loadCrime() {
 /* ---------- 3. aggregate ---------- */
 function aggregate(rows, maxM) {
   /* 1. define the 12-month window (skip the most-recent 3 months) */
-  const end = minusMonths(maxM, 3); // e.g. "2025-02"
-  const start = minusMonths(end, 11); // 11 months earlier
-  const months = [...monthRange(start, end)]; // chronological array
+  const monthsInData = [...new Set(rows.map(r => r.ym))].sort(); // ["2024-11", …, "2025-05"]
+  const drop = Math.min(3, Math.max(0, monthsInData.length - 12)); // drop 0-3 newest months
+  const months = monthsInData
+                   .slice(0, monthsInData.length - drop)  // drop the newest `drop` months
+                   .slice(-12)
 
   monthsArr = months; // expose to the charts
 
