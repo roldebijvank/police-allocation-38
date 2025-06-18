@@ -103,6 +103,10 @@ app = dash.Dash(
 def server_index():
     return send_from_directory("community-tool", "index.html")
 
+@server.route('/<path:path>')
+def serve_community_static(path):
+    return send_from_directory("community-tool", path)
+
 # CSS styles
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,
