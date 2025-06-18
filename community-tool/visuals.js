@@ -13,8 +13,9 @@ const clearError = () => ($("error").textContent = "");
 const minusMonths = (ym, n) => {
   const [Y, M] = ym.split("-").map(Number);
   const d = new Date(Y, M - 1 - n);
-  return d.toISOString().slice(0, 7);
-};
+  // format in *local* time, without calling toISOString()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 function* monthRange(start, end) {
   let [ys, ms] = start.split("-").map(Number);
   const [ye, me] = end.split("-").map(Number);
