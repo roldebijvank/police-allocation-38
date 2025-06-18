@@ -76,6 +76,7 @@ async function loadCrime() {
     const parsed = [];
 
     rows.forEach((r) => {
+      console.log(r)
       const rawMonth = (r.month || "").trim();
       const mMatch = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
       if (!mMatch) return;
