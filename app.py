@@ -357,7 +357,8 @@ def toggle_mode_controls(mode):
     Input("upload-file", "contents"),
     State("upload-file", "filename"),
 )
-def handle_upload(contents, filename):    
+def handle_upload(contents, filename):
+    print("Upload callback triggered")
     if contents is None:
         raise PreventUpdate
 
