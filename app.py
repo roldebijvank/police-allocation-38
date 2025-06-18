@@ -24,7 +24,7 @@ from helper import save_prediction
 
 from sqlalchemy import create_engine
 import psycopg2
-from flask import Flask, Response, send_from_directory, stream_with_context
+from flask import Flask, send_from_directory
 
 # DATABASE_URL = os.environ["MOD_DATABASE_URL"]
 DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
@@ -109,30 +109,8 @@ def serve_community_static(path):
 
 @server.route("/api/crime-data")
 def crime_data():
-    try:
-        chunks = pd.read_sql(
-            "SELECT month, lsoa_code, burglary_count FROM crime_data",
-            con=engine,
-            chunksize=5000  # Adjust as needed
-        )
-
-        def generate():
-            yield '['
-            first = True
-            for chunk in chunks:
-                for record in chunk.to_dict(orient="records"):
-                    if not first:
-                        yield ','
-                    else:
-                        first = False
-                    yield json.dumps(record)
-            yield ']'
-
-        return Response(stream_with_context(generate()), content_type='application/json')
-
-    except Exception as e:
-        return {"error": str(e)}, 500
-
+    df = pd.read_sql("SELECT month, lsoa_code, burglary_count FROM crime_data", con=engine)
+    return df.to_json(orient="records")
 
 @server.route("/api/lookup")
 def lookup_data():
