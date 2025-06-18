@@ -803,7 +803,7 @@ def clean_new_dataset(df: pd.DataFrame) -> pd.DataFrame:
     return full_df
 
 def generate_map(mode, selected_ward, level, past_range=None):
-    df = pd.read_sql("SELECT * FROM crime_data", con=engine, parse_dates=["month"])
+    df = pd.read_sql("SELECT lsoa_code, month, burglary_count FROM crime_data", con=engine, parse_dates=["month"])
 
     # resolve selected ward object
     if isinstance(selected_ward, dict):
