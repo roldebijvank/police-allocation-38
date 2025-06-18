@@ -66,28 +66,44 @@ fetch(LOOKUP_API)
   })
   .catch((err) => showError("Lookup JSON fetch failed: " + err.message));
 
-/* ---------- 2. load crime CSV (fetch → parse) ---------- */
+/* ---------- 2. load crime data from the API ---------- */
 async function loadCrime() {
   try {
     const resp = await fetch(CRIME_API);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const rowsRaw = await resp.json();          // ← JSON array of objects
+    const data = await resp.json();               // endpoint returns JSON array
 
     const rows = [];
     let maxMonth = null;
 
-    rowsRaw.forEach((r) => {
-      const rawMonth = (r.month || "").trim();  // e.g. "2025-03"
-      const mMatch = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
-      if (!mMatch) return;                      // skip bad rows
-      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`; // "YYYY-MM"
+    data.forEach((r) => {
+      // ── normalise keys to snake_case ──
+      const o = {};
+      Object.entries(r).forEach(([k, v]) => {
+        o[k.trim().toLowerCase().replace(/\s+/g, "_")] = v;
+      });
+
+      // ── month → "YYYY-MM" ──
+      const rawMonth = (o.month ?? o.date ?? "").trim();
+      const mm = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
+      if (!mm) return;                                   // skip bad rows
+      const ym = `${mm[1]}-${mm[2].padStart(2, "0")}`;
 
       maxMonth = !maxMonth || ym > maxMonth ? ym : maxMonth;
 
+      // ── burglary count ──
+      const burg = Number(
+        o.burglary_count ??
+        o.burglaries ??
+        o.total_burglary ??
+        o.burglary ??
+        0
+      );
+
       rows.push({
         ym,
-        lsoa: (r.lsoa_code || "").trim(),
-        burg: Number(r.burglary_count ?? r.burglary ?? 0), // burglary total
+        lsoa: (o.lsoa_code ?? o.lsoa ?? "").trim().toUpperCase(),
+        burg,
       });
     });
 
@@ -96,9 +112,10 @@ async function loadCrime() {
 
     aggregate(rows, maxMonth);
   } catch (err) {
-    showError("Crime data fetch failed: " + err.message);
+    showError("Crime data load failed: " + err.message);
   }
 }
+
 
 
 /* ---------- 3. aggregate ---------- */
