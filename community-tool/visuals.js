@@ -1,6 +1,6 @@
 /* ---------- config ---------- */
-const CRIME_API = "/api/crime-data";
-const LOOKUP_API = "/api/lookup";
+const CRIME_CSV = "/api/crime-data";
+const LOOKUP_JSON = "/api/lookup";
 
 /* ---------- tiny helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -52,7 +52,7 @@ function showTab(tab) {
 
 /* ---------- 1. load lookup ---------- */
 let lsoaToWard = {};
-fetch(LOOKUP_API)
+fetch(LOOKUP_JSON)
   .then((res) => res.json())
   .then((json) => {
     Object.entries(json).forEach(([lsoa, ward]) => {
@@ -66,55 +66,45 @@ fetch(LOOKUP_API)
   })
   .catch((err) => showError("Lookup JSON fetch failed: " + err.message));
 
-/* ---------- 2. load crime data from the API ---------- */
+/* ---------- 2. load crime CSV (fetch → parse) ---------- */
 async function loadCrime() {
   try {
-    const resp = await fetch(CRIME_API);
+    const resp = await fetch(CRIME_CSV);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();               // endpoint returns JSON array
+    const csvText = await resp.text();
+
+    const parseRes = Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"), // "month", "lsoa_code"
+    });
 
     const rows = [];
     let maxMonth = null;
 
-    data.forEach((r) => {
-      // ── normalise keys to snake_case ──
-      const o = {};
-      Object.entries(r).forEach(([k, v]) => {
-        o[k.trim().toLowerCase().replace(/\s+/g, "_")] = v;
-      });
-
-      // ── month → "YYYY-MM" ──
-      const rawMonth = (o.month ?? o.date ?? "").trim();
-      const mm = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
-      if (!mm) return;                                   // skip bad rows
-      const ym = `${mm[1]}-${mm[2].padStart(2, "0")}`;
+    parseRes.data.forEach((r) => {
+      const rawMonth = (r.month || "").trim(); // e.g. "2024-3", "2024-03-01"
+      const mMatch = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
+      if (!mMatch) return; // skip bad rows
+      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`; // → "YYYY-MM"
 
       maxMonth = !maxMonth || ym > maxMonth ? ym : maxMonth;
 
-      const burgField =
-        Object.keys(o).find(
-          (k) => /burglar/i.test(k) && /(count|total|ies|number)/i.test(k)
-        ) || "";
-
-      const burg = Number(String(o[burgField] ?? 0).replace(/[, ]/g, "")) || 0;
-
       rows.push({
         ym,
-        lsoa: (o.lsoa_code ?? o.lsoa ?? "").trim().toUpperCase(),
-        burg,
+        lsoa: (r.lsoa_code || "").trim(),
+        burg: Number(r.burglary_count ?? r.burglary ?? 0), // ← burglary total in that row
       });
     });
 
     if (!rows.length)
-      return showError("No usable rows were found from crime-data API.");
+      return showError("CSV parsed but no usable rows were found.");
 
     aggregate(rows, maxMonth);
   } catch (err) {
-    showError("Crime data load failed: " + err.message);
+    showError("Crime CSV load failed: " + err.message);
   }
 }
-
-
 
 /* ---------- 3. aggregate ---------- */
 function aggregate(rows, maxM) {
