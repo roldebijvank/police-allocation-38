@@ -20,7 +20,7 @@ from shapely.geometry import shape
 
 import joblib
 from scipy.stats import entropy
-from helper import save_prediction
+from Police_dashboard.helper import save_prediction
 
 from sqlalchemy import create_engine
 import psycopg2
@@ -466,7 +466,7 @@ def predict_month(n_clicks):
     try:
         month = (pd.Timestamp.now() + pd.DateOffset(months=1)).strftime("%Y-%m-%d")
         print("Predicting for month:", month)
-        save_prediction(model, scaler, month)
+        save_prediction(model, scaler, month, engine)
         return 0
     except Exception as e:
         print("Prediction error:", e)
