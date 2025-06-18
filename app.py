@@ -107,6 +107,17 @@ def server_index():
 def serve_community_static(path):
     return send_from_directory("community-tool", path)
 
+
+@server.route("/api/crime-data")
+def crime_data():
+    df = pd.read_sql("SELECT * FROM crime_data", con=engine)
+    return df.to_json(orient="records")
+
+@server.route("/api/lookup")
+def lookup_data():
+    df = pd.read_sql("SELECT * FROM lsoa_to_ward", con=engine)
+    return df.to_json(orient="records")
+
 # CSS styles
 SIDEBAR_STYLE = {
     "position": "fixed", "top": 0, "left": 0, "bottom": 0,

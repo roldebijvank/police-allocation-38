@@ -1,6 +1,6 @@
 /* ---------- config ---------- */
-const CRIME_CSV = "../data/crime_fixed_data.csv";
-const LOOKUP_JSON = "../data/lsoa_to_ward.json";
+const CRIME_API = "/api/crime-data";
+const LOOKUP_API = "/api/lookup";
 
 /* ---------- tiny helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -52,7 +52,7 @@ function showTab(tab) {
 
 /* ---------- 1. load lookup ---------- */
 let lsoaToWard = {};
-fetch(LOOKUP_JSON)
+fetch(LOOKUP_API)
   .then((res) => res.json())
   .then((json) => {
     Object.entries(json).forEach(([lsoa, ward]) => {
@@ -69,38 +69,30 @@ fetch(LOOKUP_JSON)
 /* ---------- 2. load crime CSV (fetch → parse) ---------- */
 async function loadCrime() {
   try {
-    const resp = await fetch(CRIME_CSV);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const csvText = await resp.text();
+    const resp = await fetch(CRIME_API);
+    const rows = await resp.json();
 
-    const parseRes = Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"), // "month", "lsoa_code"
-    });
-
-    const rows = [];
     let maxMonth = null;
+    const parsed = [];
 
-    parseRes.data.forEach((r) => {
-      const rawMonth = (r.month || "").trim(); // e.g. "2024-3", "2024-03-01"
+    rows.forEach((r) => {
+      const rawMonth = (r.month || "").trim();
       const mMatch = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
-      if (!mMatch) return; // skip bad rows
-      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`; // → "YYYY-MM"
-
+      if (!mMatch) return;
+      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`;
       maxMonth = !maxMonth || ym > maxMonth ? ym : maxMonth;
 
-      rows.push({
+      parsed.push({
         ym,
         lsoa: (r.lsoa_code || "").trim(),
-        burg: Number(r.burglary_count ?? r.burglary ?? 0), // ← burglary total in that row
+        burg: Number(r.burglary_count ?? r.burglary ?? 0),
       });
     });
 
-    if (!rows.length)
-      return showError("CSV parsed but no usable rows were found.");
+    if (!parsed.length)
+      return showError("No usable rows were found from crime-data API.");
 
-    aggregate(rows, maxMonth);
+    aggregate(parsed, maxMonth);
   } catch (err) {
     showError("Crime CSV load failed: " + err.message);
   }
