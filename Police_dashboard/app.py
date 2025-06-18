@@ -35,8 +35,8 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL)
 
 # model paths
-MODEL_PATH = os.path.join("./models", "xgb_burglary_model.pkl")
-SCALER_PATH = os.path.join("./models", "robust_scaler.pkl")
+MODEL_PATH = os.path.join("../models", "xgb_burglary_model.pkl")
+SCALER_PATH = os.path.join("../models", "robust_scaler.pkl")
 
 # get model and scaler
 model = joblib.load(MODEL_PATH)
