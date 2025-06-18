@@ -6,6 +6,7 @@ import numpy as np
 import traceback
 import random
 
+from flask import request
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
@@ -21,24 +22,38 @@ import joblib
 from scipy.stats import entropy
 from helper import save_prediction
 
-from flask import request
 from sqlalchemy import create_engine
+import psycopg2
 
-# ─── Database Connection ──────────────────────────────────────────────────────
+# DATABASE_URL = os.environ["MOD_DATABASE_URL"]
+DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
 
-DATABASE_URL = (
-    f"postgresql://{os.environ['DB_USER']}:{os.environ['DB_PASS']}"
-    f"@{os.environ['DB_HOST']}:{os.environ.get('DB_PORT', '5432')}/{os.environ['DB_NAME']}"
-)
+if not DATABASE_URL:
+    raise ValueError("HEROKU_DB_URL is not set in the environment.")
 
 engine = create_engine(DATABASE_URL)
 
+# model paths
+MODEL_PATH = os.path.join("./models", "xgb_burglary_model.pkl")
+SCALER_PATH = os.path.join("./models", "robust_scaler.pkl")
+
+# get model and scaler
+model = joblib.load(MODEL_PATH)
+scaler = joblib.load(SCALER_PATH)
+
 # ─── 1) Read both GeoJSONs into Python dicts ─────────────────────────────────
-ward_gdf = gpd.read_postgis("SELECT * FROM wards", con=engine, geom_col='geometry').to_crs(epsg=4326)
+
+ward_gdf = gpd.read_postgis("SELECT * FROM wards", con=engine, geom_col="geometry").to_crs(epsg=4326)
+# convert back to GeoJSON dict for Plotly
 ward_geo = json.loads(ward_gdf.to_json())
 
-lsoa_gdf = gpd.read_postgis("SELECT * FROM lsoas", con=engine, geom_col='geometry').to_crs(epsg=4326)
+# ─── Read & reproject LSOA boundaries into EPSG:4326 ────────────────────────
+lsoa_gdf = gpd.read_postgis("SELECT * FROM lsoas", con=engine, geom_col="geometry").to_crs(epsg=4326)
 lsoa_geo = json.loads(lsoa_gdf.to_json())
+
+
+print("── Sample ward_geo.properties keys:", ward_geo["features"][0]["properties"].keys())
+print("── Sample ward_geo.properties (first feature):", ward_geo["features"][0]["properties"])
 
 lsoa_to_ward = {}
 
@@ -73,27 +88,10 @@ ward_mapping = {
 }
 name_to_code = {name.lower(): code for code, name in ward_mapping.items()}
 
-# get model and scaler
-MODEL_PATH = "model/xgb_burglary_model.pkl"
-SCALER_PATH = "model/robust_scaler.pkl"
-
-model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
 
 # ─── 4) Start Dash App ──────────────────────────────────────────────────────
 app = dash.Dash(__name__)
-server = app.server # for heroku
-
-@server.before_request
-def redirect_to_https():
-    if request.headers.get('X-Forwarded-Proto', 'http') != 'https':
-        url = request.url.replace('http://', 'https://', 1)
-        return '', 301, {'Location': url}
-    
-@server.after_request
-def add_hsts_header(response):
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
-    return response
+server = app.server
 
 # CSS styles
 SIDEBAR_STYLE = {
@@ -341,7 +339,8 @@ def handle_upload(contents, filename):
         update_model_with_new_data(clean_df)
         print("model updated")
         
-        df_master = pd.read_sql_table("crime_data", con=engine)
+        df_master = pd.read_sql("SELECT * FROM crime_data", con=engine)
+
         clean_df = clean_df[df_master.columns]
         
         print("Difference: ", set(df_master.columns) - set(clean_df.columns))
@@ -361,7 +360,8 @@ def handle_upload(contents, filename):
         if len(clean_df) < prev_len_clean:
             return html.Div("Data already exists, no new rows added.")
         
-        df_master.to_sql("crime_data", con=engine, method="multi", if_exists="append", index=False)
+        # add to postgres
+        clean_df.to_sql("crime_data", con=engine, if_exists="append", index=False)
 
         return html.Div("New data uploaded successfully.")
     except Exception as e:
@@ -466,7 +466,7 @@ def predict_month(n_clicks):
     try:
         month = (pd.Timestamp.now() + pd.DateOffset(months=1)).strftime("%Y-%m-%d")
         print("Predicting for month:", month)
-        save_prediction(model, scaler, month, engine)
+        save_prediction(model, scaler, month)
         return 0
     except Exception as e:
         print("Prediction error:", e)
@@ -517,8 +517,8 @@ def unified_map_callback(apply_clicks, predict_clicks, mode, selected_ward, leve
     raise PreventUpdate
 
 def build_perception_figure():
-    sentiment_summary = pd.read_sql_table("sentiment_summary", con=engine)
-    
+    sentiment_summary = pd.read_sql("SELECT * FROM sentiment_summary", con=engine)
+
     topic_sentiment = (
         sentiment_summary.groupby('matched_topics')
         .agg(mean_sentiment=('avg_sentiment', 'mean'))
@@ -580,14 +580,13 @@ def clean_new_dataset(df: pd.DataFrame) -> pd.DataFrame:
     # print("Filtered to London LSOAs:", df["lsoa_code"].nunique(), "unique LSOAs remaining")
 
     # Load and clean stop and search data
-    stop_and_search_data = pd.read_sql_table("stop_and_search", con=engine)
+    stop_and_search_data = pd.read_sql("SELECT * FROM stop_and_search", con=engine)
     stop_and_search_data.columns = stop_and_search_data.columns.str.strip().str.lower().str.replace(" ", "_").str.replace(r"[^\w_]", "", regex=True)
     stop_and_search_data["date"] = pd.to_datetime(stop_and_search_data["date"], errors="coerce")
     stop_and_search_data.dropna(subset=["date", "longitude", "latitude"], inplace=True)
     stop_and_search_data["month"] = stop_and_search_data["date"].dt.to_period("M").dt.to_timestamp()
 
     # Attach LSOA to stop and search
-    lsoa_gdf = pd.read_sql_table("lsoas", con=engine)
     stop_and_search_data["geometry"] = stop_and_search_data.apply(lambda row: Point(row["longitude"], row["latitude"]), axis=1)
     stop_gdf = gpd.GeoDataFrame(stop_and_search_data, geometry="geometry", crs="EPSG:4326").to_crs(lsoa_gdf.crs)
     stop_with_lsoa = gpd.sjoin(stop_gdf, lsoa_gdf[["LSOA11CD", "geometry"]], how="left", predicate="within")
@@ -614,7 +613,7 @@ def clean_new_dataset(df: pd.DataFrame) -> pd.DataFrame:
     crime_counts_total = df.groupby(["lsoa_code", "month"]).size().reset_index(name="crime_count")
 
     # Merge population early
-    pop = pd.read_sql_table("mid_2021_lsoa", con=engine)
+    pop = pd.read_sql("SELECT * FROM mid_2021_lsoa", con=engine)
     pop.columns = pop.columns.str.strip().str.lower().str.replace(" ", "_").str.replace(r"[^\w_]", "", regex=True)
     pop = pop.rename(columns={"lsoa_2021_code": "lsoa_code", "total": "population"})
     full_df = full_df.merge(pop[["lsoa_code", "population"]], on="lsoa_code", how="left")
@@ -666,7 +665,7 @@ def clean_new_dataset(df: pd.DataFrame) -> pd.DataFrame:
     full_df["is_holiday_season"] = full_df["month_num"].isin([11, 12]).astype(int)
 
     # Merge IMD and population
-    imd = pd.read_sql_table("id_2019_for_london", con=engine)
+    imd = pd.read_sql("SELECT * FROM id_2019_for_london", con=engine)
     imd.columns = imd.columns.str.strip().str.lower().str.replace(" ", "_").str.replace(r"[^\w_]", "", regex=True)
     imd = imd.rename(columns={
         "lsoa_code_(2011)": "lsoa_code",
@@ -772,7 +771,7 @@ def clean_new_dataset(df: pd.DataFrame) -> pd.DataFrame:
     return full_df
 
 def generate_map(mode, selected_ward, level, past_range=None):
-    df = pd.read_sql_table("crime_data", con=engine, parse_dates=["month"])
+    df = pd.read_sql("SELECT * FROM crime_data", con=engine, parse_dates=["month"])
 
     # resolve selected ward object
     if isinstance(selected_ward, dict):
@@ -801,7 +800,7 @@ def generate_map(mode, selected_ward, level, past_range=None):
         return blank, blank, FULL_MAP_STYLE, {"display":"none"}, html.Div()
 
     if mode == "pred":
-        df_pred = pd.read_sql_table("burglary_forecast", con=engine)
+        df_pred = pd.read_sql("SELECT * FROM burglary_forecast", con=engine)
 
         if level == "ward":
             df_pred["ward_code"] = df_pred.lsoa_code.map(lsoa_to_ward)
@@ -970,6 +969,146 @@ def generate_map(mode, selected_ward, level, past_range=None):
         FULL_MAP_STYLE,       # lsoa style
         html.Div()            # empty alloc container
     )
+    
+# def Combine_LSOAs_Wards_predictions(selected_month): #Selected month is for what month of the predicted data we wanna try to schedule
+#     lsoas = WARD_GEOJSON
+#     wards = LSOA_GEOJSON
+#     lsoas["LSOA_area"] = lsoas.geometry.area
+#     joined = gpd.sjoin(lsoas, wards, how='inner', predicate='intersects')
+#     overlap_counts = joined.groupby(joined.index).size()
+#     lsoas_with_multiple_wards = overlap_counts[overlap_counts > 1]
+
+#     joined_multi = joined.loc[lsoas_with_multiple_wards.index]
+
+#     joined_multi = joined_multi.merge(
+#         wards[["geometry", "Name", "GSS_Code"]], left_on="index_right", right_index=True, suffixes=('', '_ward')
+#     )
+
+#     joined_multi["intersection_geom"] = joined_multi.apply(
+#         lambda row: row.geometry.intersection(row.geometry_ward), axis=1
+#     )
+
+#     # Calculate intersection area
+#     joined_multi["intersect_area"] = joined_multi["intersection_geom"].area
+
+#     # Calculate percentage
+#     joined_multi["pct_of_lsoa_area"] = joined_multi["intersect_area"] / joined_multi["LSOA_area"] * 100
+
+#     result = joined_multi[[
+#         "LSOA11CD", "LSOA11NM", "GSS_Code", "Name", "intersect_area", "LSOA_area", "pct_of_lsoa_area"
+#     ]].rename(columns={"Name": "Ward", "GSS_Code": "Ward_code"})
+
+#     result.sort_values(by="LSOA11CD")
+
+#     ward_counts = result.groupby('LSOA11CD')['Ward'].nunique()
+
+#     # Sort
+#     df_sorted = result.sort_values(['LSOA11CD', 'pct_of_lsoa_area'], ascending=[True, False])
+
+#     df_max = df_sorted.drop_duplicates(subset='LSOA11CD', keep='first').copy()
+#     df_max['ward_count'] = df_max['LSOA11CD'].map(ward_counts)
+
+#     df_max_sorted = df_max.sort_values(by='pct_of_lsoa_area', ascending=False)
+
+#     single_ward_lsoa_ids = overlap_counts[overlap_counts == 1].index
+#     single_ward_rows = joined.loc[single_ward_lsoa_ids]
+
+#     single_ward_df = single_ward_rows[['LSOA11CD', 'LSOA11NM', 'GSS_Code', 'Name']].rename(
+#         columns={'Name': 'Ward', 'GSS_Code': 'Ward_code'})
+#     multi_ward_df = df_max[['LSOA11CD', 'LSOA11NM', 'Ward_code', 'Ward']]
+
+#     # Combine
+#     final_lsoa_ward_df = pd.concat([single_ward_df, multi_ward_df], ignore_index=True)
+
+#     # Sort by Ward_code
+#     final_lsoa_ward_df = final_lsoa_ward_df.sort_values('Ward_code').reset_index(drop=True)
+
+#     # Get burglary per month per LSOA
+
+#     # use the output of the predictive model (or ig the historical data)
+#     crimes = PRED_CSV_PATH
+
+#     crimes['Month'] = pd.to_datetime(crimes['Month'])
+
+#     crimes_cleaned = crimes.dropna(subset=['Longitude', 'Latitude'])
+
+#     burglary = crimes_cleaned[crimes_cleaned['Crime type'] == 'Burglary'].copy()
+
+#     gdf_crimes = gpd.GeoDataFrame(
+#         crimes_cleaned,
+#         geometry=gpd.points_from_xy(crimes_cleaned['Longitude'], crimes_cleaned['Latitude']),
+#         crs="EPSG:4326"
+#     )
+
+#     gdf_crimes = gpd.sjoin(
+#         gdf_crimes,
+#         lsoas[['geometry', 'LSOA11NM']],
+#         how='left',
+#         predicate='within'
+#     )
+
+#     gdf_burglary = gpd.GeoDataFrame(
+#         burglary,
+#         geometry=gpd.points_from_xy(burglary['Longitude'], burglary['Latitude']),
+#         crs="EPSG:4326"
+#     )
+
+#     gdf_burglary = gpd.sjoin(
+#         gdf_burglary,
+#         lsoas[['geometry', 'LSOA11NM']],
+#         how='left',
+#         predicate='within'
+#     )
+
+#     monthly_burglary_counts = (
+#         gdf_burglary.dropna(subset=['LSOA11NM'])
+#         .groupby(['LSOA11NM', gdf_burglary['Month'].dt.to_period('M')])
+#         .size()
+#         .reset_index(name='Burglary_Count')
+#     )
+
+#     monthly_burglary_counts['Month'] = monthly_burglary_counts['Month'].dt.to_timestamp()
+
+#     burglary_pivot = monthly_burglary_counts.pivot(index='LSOA11NM', columns='Month', values='Burglary_Count').fillna(0)
+
+#     full_lsoa_months = pd.MultiIndex.from_product(
+#         [monthly_burglary_counts['LSOA11NM'].unique(), monthly_burglary_counts['Month'].unique()],
+#         names=['LSOA11NM', 'Month']
+#     )
+
+#     monthly_burglary_counts = monthly_burglary_counts.set_index(['LSOA11NM', 'Month']).reindex(full_lsoa_months,
+#                                                                                                fill_value=0).reset_index()
+
+#     burglary_for_month = monthly_burglary_counts[
+#         monthly_burglary_counts["Month"] == selected_month
+#         ]
+
+#     merged = final_lsoa_ward_df.merge(
+#         burglary_for_month,
+#         on="LSOA11NM",
+#         how="left"
+#     )
+
+#     merged["Burglary_Count"] = merged["Burglary_Count"].fillna(0)
+
+#     ward_totals = merged.groupby("Ward_code")["Burglary_Count"].sum().reset_index()
+#     ward_totals = ward_totals.rename(columns={"Burglary_Count": "Ward_Total_Burglary"})
+
+#     merged = merged.merge(ward_totals, on="Ward_code", how="left")
+
+#     merged["LSOA_Pct_of_Ward"] = (
+#                                          merged["Burglary_Count"] / merged["Ward_Total_Burglary"]
+#                                  ).fillna(0) * 100
+
+#     lsoa_pct_ward = merged[[
+#         "Ward_code", "Ward", "LSOA11CD", "LSOA11NM",
+#         "Burglary_Count", "Ward_Total_Burglary", "LSOA_Pct_of_Ward"
+#     ]]
+
+#     lsoa_pct_ward = lsoa_pct_ward.sort_values(
+#         by=["Ward_code", "Burglary_Count"], ascending=[True, False]
+#     ).reset_index(drop=True)
+#     return lsoa_pct_ward
 
 # def Generate_schedules():
 #     lsoa_pct_ward = Combine_LSOAs_Wards_predictions((pd.Timestamp.now() + pd.DateOffset(months=1)).strftime("%Y-%m-%d"))
@@ -1110,7 +1249,6 @@ def generate_map(mode, selected_ward, level, past_range=None):
 #     full_schedule_df = pd.read_csv(os.path.join(DATA_DIR, f"All_wards_patrol_schedule.csv"))
 #     first_col = full_schedule_df.columns[0]
 #     return full_schedule_df[full_schedule_df[first_col].str.startswith(f"{Ward_name}_Officer_")].copy()
-
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 8050)))

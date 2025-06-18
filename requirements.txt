@@ -10,3 +10,5 @@ scikit-learn
 xgboost
 sqlalchemy
 flask
+gunicorn
+psycopg2-binary
