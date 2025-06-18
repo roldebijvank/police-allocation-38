@@ -24,6 +24,7 @@ from Police_dashboard.helper import save_prediction
 
 from sqlalchemy import create_engine
 import psycopg2
+from flask import Flask, send_from_directory
 
 # DATABASE_URL = os.environ["MOD_DATABASE_URL"]
 DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
@@ -90,8 +91,12 @@ name_to_code = {name.lower(): code for code, name in ward_mapping.items()}
 
 
 # ─── 4) Start Dash App ──────────────────────────────────────────────────────
-app = dash.Dash(__name__)
-server = app.server
+server = Flask(__name__)
+app = dash.Dash(__name__, server=server)
+
+@server.route("/")
+def server_index():
+    return send_from_directory("static", "../community-tool/index.html")
 
 # CSS styles
 SIDEBAR_STYLE = {
