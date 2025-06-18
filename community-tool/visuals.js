@@ -13,9 +13,8 @@ const clearError = () => ($("error").textContent = "");
 const minusMonths = (ym, n) => {
   const [Y, M] = ym.split("-").map(Number);
   const d = new Date(Y, M - 1 - n);
-  // format in *local* time, without calling toISOString()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+  return d.toISOString().slice(0, 7);
+};
 function* monthRange(start, end) {
   let [ys, ms] = start.split("-").map(Number);
   const [ye, me] = end.split("-").map(Number);
@@ -71,6 +70,7 @@ fetch(LOOKUP_API)
 async function loadCrime() {
   try {
     const resp = await fetch(CRIME_API);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const rows = await resp.json();
 
     let maxMonth = null;
@@ -86,7 +86,7 @@ async function loadCrime() {
       parsed.push({
         ym,
         lsoa: (r.lsoa_code || "").trim(),
-        burg: Number(r.burglary_count ?? r.burglary ?? 0),
+        burg: Number(r.burglary_count),
       });
     });
 
