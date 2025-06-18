@@ -71,47 +71,42 @@ async function loadCrime() {
   try {
     const resp = await fetch(CRIME_API);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const rows = await resp.json();
+    const rowsRaw = await resp.json();          // ← JSON array of objects
 
+    const rows = [];
     let maxMonth = null;
-    const parsed = [];
 
-    rows.forEach((r) => {
-      const rawMonth = (r.month || "").trim();
+    rowsRaw.forEach((r) => {
+      const rawMonth = (r.month || "").trim();  // e.g. "2025-03"
       const mMatch = /^(\d{4})[-/](\d{1,2})/.exec(rawMonth);
-      if (!mMatch) return;
-      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`;
+      if (!mMatch) return;                      // skip bad rows
+      const ym = `${mMatch[1]}-${mMatch[2].padStart(2, "0")}`; // "YYYY-MM"
+
       maxMonth = !maxMonth || ym > maxMonth ? ym : maxMonth;
 
-      parsed.push({
+      rows.push({
         ym,
         lsoa: (r.lsoa_code || "").trim(),
-        burg: Number(r.burglary_count ?? r.burglary ?? 0),
+        burg: Number(r.burglary_count ?? r.burglary ?? 0), // burglary total
       });
-
-      console.log(
-        `Parsed row: ${ym} | ${r.lsoa_code} | ${r.burglary_count ?? r.burglary}`
-      );
     });
 
-    if (!parsed.length)
+    if (!rows.length)
       return showError("No usable rows were found from crime-data API.");
 
-
-    aggregate(parsed, maxMonth);
+    aggregate(rows, maxMonth);
   } catch (err) {
-    showError("Crime CSV load failed: " + err.message);
+    showError("Crime data fetch failed: " + err.message);
   }
 }
+
 
 /* ---------- 3. aggregate ---------- */
 function aggregate(rows, maxM) {
   /* 1. define the 12-month window (skip the most-recent 3 months) */
-  const monthsInData = [...new Set(rows.map(r => r.ym))].sort(); // ["2024-11", …, "2025-05"]
-  const drop = Math.min(3, Math.max(0, monthsInData.length - 12)); // drop 0-3 newest months
-  const months = monthsInData
-                   .slice(0, monthsInData.length - drop)  // drop the newest `drop` months
-                   .slice(-12)
+  const end = minusMonths(maxM, 3); // e.g. "2025-02"
+  const start = minusMonths(end, 11); // 11 months earlier
+  const months = [...monthRange(start, end)]; // chronological array
 
   monthsArr = months; // expose to the charts
 
