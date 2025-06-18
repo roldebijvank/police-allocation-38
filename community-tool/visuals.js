@@ -92,6 +92,8 @@ async function loadCrime() {
     if (!parsed.length)
       return showError("No usable rows were found from crime-data API.");
 
+    console.log(`parsed ${parsed.length} rows, max month: ${maxMonth}`);
+
     aggregate(parsed, maxMonth);
   } catch (err) {
     showError("Crime CSV load failed: " + err.message);
