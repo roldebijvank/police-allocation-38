@@ -96,8 +96,7 @@ app = dash.Dash(
     __name__,
     server=server,
     routes_pathname_prefix='/police-dashboard/',
-    requests_pathname_prefix='/police-dashboard/',
-    suppress_callback_exceptions=True
+    requests_pathname_prefix='/police-dashboard/'
 )
 
 @server.route("/")
@@ -360,14 +359,12 @@ def toggle_mode_controls(mode):
     prevent_initial_call=True
 )
 def handle_upload(contents, filename):
-    print("Upload callback triggered with contents:", contents)
     if contents is None:
         raise PreventUpdate
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
-        print("Decoding uploaded CSV...")
         df_new = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
         print("df_new created")
         clean_df = clean_new_dataset(df_new)
