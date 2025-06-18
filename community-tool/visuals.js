@@ -86,14 +86,16 @@ async function loadCrime() {
       parsed.push({
         ym,
         lsoa: (r.lsoa_code || "").trim(),
-        burg: Number(r.burglary_count),
+        burg: Number(r.burglary_count ?? r.burglary ?? 0),
       });
+
+      console.log(
+        `Parsed row: ${ym} | ${r.lsoa_code} | ${r.burglary_count ?? r.burglary}`
+      );
     });
 
     if (!parsed.length)
       return showError("No usable rows were found from crime-data API.");
-
-    console.log(parsed.slice(0, 3));
 
 
     aggregate(parsed, maxMonth);
@@ -143,7 +145,6 @@ function aggregate(rows, maxM) {
     });
 
     londonMean[m] = wardsWithData ? total / wardsWithData : 0;
-    console.log(`London mean for ${m}: ${londonMean[m]}`);
   });
 
   /* 5. (re)draw the UI */
