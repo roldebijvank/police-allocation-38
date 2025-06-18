@@ -91,14 +91,12 @@ async function loadCrime() {
 
       maxMonth = !maxMonth || ym > maxMonth ? ym : maxMonth;
 
-      // ── burglary count ──
-      const burg = Number(
-        o.burglary_count ??
-        o.burglaries ??
-        o.total_burglary ??
-        o.burglary ??
-        0
-      );
+      const burgField =
+        Object.keys(o).find(
+          (k) => /burglar/i.test(k) && /(count|total|ies|number)/i.test(k)
+        ) || "";
+
+      const burg = Number(String(o[burgField] ?? 0).replace(/[, ]/g, "")) || 0;
 
       rows.push({
         ym,
@@ -124,7 +122,6 @@ function aggregate(rows, maxM) {
   const end = minusMonths(maxM, 3); // e.g. "2025-02"
   const start = minusMonths(end, 11); // 11 months earlier
   const months = [...monthRange(start, end)]; // chronological array
-  console.log("Months:", months);
 
   monthsArr = months; // expose to the charts
 
