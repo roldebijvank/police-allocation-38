@@ -92,7 +92,12 @@ name_to_code = {name.lower(): code for code, name in ward_mapping.items()}
 
 # ─── 4) Start Dash App ──────────────────────────────────────────────────────
 server = Flask(__name__)
-app = dash.Dash(__name__, server=server)
+app = dash.Dash(
+    __name__,
+    server=server,
+    routes_pathname_prefix='/dash/',  # Dash will now live at /dash/
+    requests_pathname_prefix='/dash/'
+)
 
 @server.route("/")
 def server_index():
