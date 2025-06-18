@@ -53,18 +53,25 @@ function showTab(tab) {
 /* ---------- 1. load lookup ---------- */
 let lsoaToWard = {};
 fetch(LOOKUP_JSON)
-  .then((res) => res.json())
-  .then((json) => {
-    Object.entries(json).forEach(([lsoa, ward]) => {
-      lsoaToWard[lsoa.trim()] = ward.ward_code; // ← trim here
-      if (!wardName.has(ward.ward_code)) {
-        wardName.set(ward.ward_code, ward.ward_name);
-      }
-    });
+  .then(res => res.json())
+  .then(json => {
+    if (Array.isArray(json)) {
+      json.forEach(({ lsoa_code, ward_code, ward_name }) => {
+        lsoaToWard[lsoa_code.trim()] = ward_code;
+        if (!wardName.has(ward_code)) wardName.set(ward_code, ward_name);
+      });
+    }
+    else {
+      Object.entries(json).forEach(([lsoa, ward]) => {
+        lsoaToWard[lsoa.trim()] = ward.ward_code;
+        if (!wardName.has(ward.ward_code)) wardName.set(ward.ward_code, ward.ward_name);
+      });
+    }
+
     if (!wardName.size) return showError("Lookup JSON is empty or malformed.");
     loadCrime();
   })
-  .catch((err) => showError("Lookup JSON fetch failed: " + err.message));
+  .catch(err => showError("Lookup JSON fetch failed: " + err.message));
 
 /* ---------- 2. load crime CSV (fetch → parse) ---------- */
 async function loadCrime() {
@@ -95,8 +102,6 @@ async function loadCrime() {
         lsoa: (r.lsoa_code || "").trim(),
         burg: Number(r.burglary_count ?? r.burglary ?? 0), // ← burglary total in that row
       });
-
-      console.log(`Row: ${ym} | ${r.lsoa_code} | ${r.burglary_count}`);
     });
 
     if (!rows.length)
