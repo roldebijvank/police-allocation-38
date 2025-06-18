@@ -107,11 +107,15 @@ def server_index():
 def serve_community_static(path):
     return send_from_directory("community-tool", path)
 
-
 @server.route("/api/crime-data")
 def crime_data():
-    df = pd.read_sql("SELECT * FROM crime_data", con=engine)
-    return df.to_json(orient="records")
+    try:
+        chunks = pd.read_sql("SELECT * FROM crime_data", con=engine, chunksize=10000)
+        df = pd.concat(chunks)
+        return df.to_json(orient="records")
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 
 @server.route("/api/lookup")
 def lookup_data():
