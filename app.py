@@ -364,6 +364,7 @@ def handle_upload(contents, filename):
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
+        print("Decoding uploaded CSV...")
         df_new = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
         print("df_new created")
         clean_df = clean_new_dataset(df_new)
