@@ -111,7 +111,7 @@ def serve_community_static(path):
 def crime_data():
     try:
         chunks = pd.read_sql(
-            "SELECT * FROM crime_data",
+            "SELECT month, lsoa_code, burglary_count FROM crime_data",
             con=engine,
             chunksize=5000  # Adjust as needed
         )
