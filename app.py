@@ -356,9 +356,10 @@ def toggle_mode_controls(mode):
     Output("upload-file", "children"),
     Input("upload-file", "contents"),
     State("upload-file", "filename"),
+    prevent_initial_call=True
 )
 def handle_upload(contents, filename):
-    print("Upload callback triggered")
+    print("Upload callback triggered with contents:", contents)
     if contents is None:
         raise PreventUpdate
 
