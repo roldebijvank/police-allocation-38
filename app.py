@@ -30,9 +30,11 @@ from flask import Flask, Response, send_from_directory
 # DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
 
 DATABASE_URL = os.environ["DB_URL"]
+PRED_CSV_NORM_PATH = os.path.join("data/", "burglary_next_month_forecast_normalized.csv")
+PERC_CSV_NORM_PATH = os.path.join("data/", "survey_mean_normalized.csv")
 
 if not DATABASE_URL:
-    raise ValueError("HEROKU_DB_URL is not set in the environment.")
+    raise ValueError("DB_URL is not set in the environment.")
 
 engine = create_engine(DATABASE_URL)
 
@@ -170,6 +172,7 @@ app.layout = html.Div([
                 options=[
                     {"label": "Past Data",      "value": "past"},
                     {"label": "Predicted Data", "value": "pred"},
+                    {"label": "Predicted vs Perceived", "value": "pred_vs_perceived"},
                 ],
                 value="past",
                 labelStyle={"display": "block"}
@@ -334,7 +337,7 @@ app.layout = html.Div([
         },
         children=[
             html.Button("Close", id="close-perception", style={"float":"right"}),
-            html.H3("Perception vs Predicted Burglaries"),
+            html.H3("Mean Sentiment by Topic"),
             dcc.Graph(id="perception-graph")
         ]
     )
@@ -354,6 +357,8 @@ def toggle_mode_controls(mode):
     if mode == "past":
         return {}, {"display": "none"}, {"display": "none"}
     elif mode == "pred":
+        return {"display": "none"}, {}, {"display": "none"}
+    elif mode == "pred_vs_perceived":
         return {"display": "none"}, {}, {"display": "none"}
     elif mode == "alloc":
         return {"display": "none"}, {"display": "none"}, {}
@@ -559,6 +564,9 @@ def unified_map_callback(apply_clicks, predict_clicks, mode, selected_ward, leve
 
     if mode == "pred" and trigger_id in ["data-mode", "predict-button", "selected-ward"]:
         return generate_map("pred", selected_ward, level)
+
+    if mode == "pred_vs_perceived":
+        return generate_map("pred_vs_perceived", selected_ward, level)
 
     raise PreventUpdate
 
@@ -924,6 +932,58 @@ def generate_map(mode, selected_ward, level, past_range=None):
             HALF_MAP_STYLE,
             alloc_table
         )
+        
+    if mode == "pred_vs_perceived":
+        df_pred = pd.read_csv(PRED_CSV_NORM_PATH)
+        df_perc = pd.read_csv(PERC_CSV_NORM_PATH)
+
+        if "predicted_burglary_norm" not in df_pred.columns:
+            raise ValueError("Missing 'predicted_burglary_norm' in predicted data.")
+        if "LSOA code" not in df_perc.columns or "survey_normalized" not in df_perc.columns:
+            raise ValueError("Perceived data must contain 'LSOA code' and 'survey_normalized' columns.")
+
+        df_merged = df_pred.merge(
+            df_perc.rename(columns={"LSOA code": "lsoa_code", "survey_normalized": "perceived_burglary"}),
+            on="lsoa_code",
+            how="left"
+        )
+        df_merged["gap"] = df_merged["predicted_burglary_norm"] - df_merged["perceived_burglary"]
+
+        if level == "ward":
+            df_merged["ward_code"] = df_merged["lsoa_code"].map(lsoa_to_ward)
+            wc = (
+                df_merged.groupby("ward_code")["gap"]
+                .mean().reset_index(name="count")
+            )
+            
+            all_w = [f["properties"]["GSS_Code"] for f in ward_geo["features"]]
+            dfw = pd.DataFrame({"code": all_w}).merge(
+                wc.rename(columns={"ward_code": "code"}), on="code", how="left"
+            )
+            dfw["count"] = dfw["count"].fillna(0)
+
+            fig = px.choropleth_map(
+                dfw, geojson=ward_geo, featureidkey="properties.GSS_Code",
+                locations="code", color="count",
+                color_continuous_scale="RdBu", opacity=0.7,
+                map_style="open-street-map",
+                center={"lat": 51.5074, "lon": -0.1278}, zoom=10,
+                labels={"count": "Predicted - Perceived"},
+            )
+            
+        else:
+            df_lsoa = df_merged[["lsoa_code", "gap"]].rename(columns={"lsoa_code": "code", "gap": "count"})
+            
+            fig = px.choropleth_map(
+                df_lsoa, geojson=lsoa_geo, featureidkey="properties.LSOA11CD",
+                locations="code", color="count",
+                color_continuous_scale="RdBu", opacity=0.7,
+                map_style="open-street-map",
+                center={"lat": 51.5074, "lon": -0.1278}, zoom=10,
+                labels={"count": "Predicted - Perceived"},
+            )
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+        return fig, fig, FULL_MAP_STYLE, {"display": "none"}, html.Div()
 
     # ─────────────────────── Past mode
     if level == "ward":
