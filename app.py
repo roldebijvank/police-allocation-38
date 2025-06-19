@@ -894,7 +894,7 @@ def generate_map(mode, selected_ward, level, past_range=None):
         )
         lsoa_fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
 
-        alloc_path = os.path.join("NOT IMPLEMENTED", "allocations", f"{selected_code}.csv")
+        alloc_path = os.path.join("allocations", f"{selected_code}.csv")
         if os.path.exists(alloc_path):
             df_alloc = pd.read_csv(alloc_path)
             alloc_table = dash_table.DataTable(
