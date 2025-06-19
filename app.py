@@ -592,7 +592,8 @@ def update_model_with_new_data(new_df: pd.DataFrame):
     target_col = "burglary_count"
     
     trained_features = scaler.feature_names_in_.tolist()
-    X_sorted_cols = new_df[trained_features]
+    print(new_df.columns)
+    X_sorted_cols = new_df[trained_features] 
 
     X_new = scaler.transform(X_sorted_cols)
     y_new = new_df[target_col].values
