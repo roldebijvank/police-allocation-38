@@ -1282,10 +1282,37 @@ def generate_map(mode, selected_ward, level, past_range=None):
 #     output_path = os.path.join(output_dir, f"All_wards_patrol_schedule.csv")
 #     full_schedule_df.to_csv(output_path, index=False)
 
-# def get_ward_schedule(Ward_name): #This only works if Generate_schedules has run already
-#     full_schedule_df = pd.read_csv(os.path.join(DATA_DIR, f"All_wards_patrol_schedule.csv"))
-#     first_col = full_schedule_df.columns[0]
-#     return full_schedule_df[full_schedule_df[first_col].str.startswith(f"{Ward_name}_Officer_")].copy()
+def get_ward_schedule(Ward_name): #This only works if Generate_schedules has run already
+    full_schedule_df = pd.read_csv(os.path.join("allocations", f"All_wards_patrol_schedule.csv"))
+    first_col = full_schedule_df.columns[0]
+    return full_schedule_df[full_schedule_df[first_col].str.startswith(f"{Ward_name}_Officer_")].copy()
+
+@app.callback(
+    Output("Schedule Button", "children"),
+    Input("selected-ward", "data")
+)
+def update_button_label(selected_ward):
+    if not selected_ward:
+        return "Download All Ward Schedules"
+    else:
+        ward_code = selected_ward["code"]
+        return f"Download {ward_mapping.get(ward_code, ward_code)} Schedule"
+
+@app.callback(
+    Input("Schedule Button", "n_clicks"),
+    State("selected-ward", "data"),
+    prevent_initial_call=True
+)
+def download_schedule(n_clicks, selected_ward):
+    DATA_DIR = "allocations"
+    if not selected_ward:
+        # Serve full schedule
+        path = os.path.join(DATA_DIR, "All_wards_patrol_schedule.csv")
+        return dcc.send_file(path)
+    else:
+        ward = get_ward_schedule(selected_ward)
+        ward.to_csv(DATA_DIR, f"{selected_ward}_patrol_schedule")
+        return dcc.send_file(DATA_DIR, f"{selected_ward}_patrol_schedule")
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 8050)))
