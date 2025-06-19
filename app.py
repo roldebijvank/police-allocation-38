@@ -141,208 +141,204 @@ HALF_MAP_STYLE  = {"width": "50%", "height": "80vh"}
 FULL_MAP_STYLE  = {"width": "100%", "height": "80vh"}
 
 
-app.layout = dcc.Loading(
-    type="circle",
-    fullscreen=True,
-    style={"backgroundColor": "rgba(0, 0, 0, 0.5)", "zIndex": 9999},
-    children=html.Div([
-        dcc.Store(id="selected-ward", data=None),
-        dcc.Store(id="sidebar-open", data=True),
-        dcc.Store(id="show-perception", data=False),
+app.layout = html.Div([
 
-        # ── Toggle filters button ─────────────────────────────────────────────────
-        html.Button(
-            "☰ Filters",
-            id="btn-toggle",
-            n_clicks=0,
-            style={"position": "fixed", "top": "10px", "left": "10px", "zIndex": 1000}
-        ),
+    dcc.Store(id="selected-ward", data=None),
+    dcc.Store(id="sidebar-open", data=True),
+    dcc.Store(id="show-perception", data=False),
 
-        # ── Sidebar ────────────────────────────────────────────────────────────────
-        html.Div(
-            id="sidebar",
-            children=[
+    # ── Toggle filters button ─────────────────────────────────────────────────
+    html.Button(
+        "☰ Filters",
+        id="btn-toggle",
+        n_clicks=0,
+        style={"position": "fixed", "top": "10px", "left": "10px", "zIndex": 1000}
+    ),
 
-                html.H2("Filters", style={"margin-top": "20px"}),
-                html.Hr(),
+    # ── Sidebar ────────────────────────────────────────────────────────────────
+    html.Div(
+        id="sidebar",
+        children=[
 
-                # Data View: Past / Predicted / Allocation
-                html.Label("Data View"),
-                dcc.RadioItems(
-                    id="data-mode",
-                    options=[
-                        {"label": "Past Data",      "value": "past"},
-                        {"label": "Predicted Data", "value": "pred"},
-                    ],
-                    value="past",
-                    labelStyle={"display": "block"}
-                ),
-                html.Br(),
+            html.H2("Filters", style={"margin-top": "20px"}),
+            html.Hr(),
 
-                # View Level (Ward vs LSOA)
-                html.Label("View Level"),
-                dcc.Dropdown(
-                    id="level",
-                    options=[
-                        {"label": "Ward", "value": "ward"},
-                        {"label": "LSOA", "value": "lsoa"},
-                    ],
-                    value="ward",
-                    clearable=False
-                ),
-                html.Br(),
+            # Data View: Past / Predicted / Allocation
+            html.Label("Data View"),
+            dcc.RadioItems(
+                id="data-mode",
+                options=[
+                    {"label": "Past Data",      "value": "past"},
+                    {"label": "Predicted Data", "value": "pred"},
+                ],
+                value="past",
+                labelStyle={"display": "block"}
+            ),
+            html.Br(),
 
-                # ── Past Controls (only when “Past Data” is chosen) ───────────────────
-                html.Div(
-                    id="past-controls",
-                    children=[
-                        html.Label("Date Range (Year)"),
-                        dcc.RangeSlider(
-                            id="past-range",
-                            min=2021,
-                            max=2025,
-                            step=1,
-                            marks={y: str(y) for y in range(2021, 2026)},
-                            value=[2021, 2025]
-                        ),
-                    ]
-                ),
+            # View Level (Ward vs LSOA)
+            html.Label("View Level"),
+            dcc.Dropdown(
+                id="level",
+                options=[
+                    {"label": "Ward", "value": "ward"},
+                    {"label": "LSOA", "value": "lsoa"},
+                ],
+                value="ward",
+                clearable=False
+            ),
+            html.Br(),
 
-                # ── Predicted Controls (only when “Predicted Data”) ─────────────────
-                html.Div(
-                    id="pred-controls",
-                    children=[
-                        html.Br(),
-                        html.Button(
-                            "Predict Next Month",
-                            id="predict-button",
-                            n_clicks=0,
-                            style={"width": "100%"}
-                        ),
-                        html.Br(), html.Br(),
-                        html.Label("Upload New Monthly CSV:"),
-                        dcc.Upload(
-                            id="upload-file",
-                            children=html.Div(["Drag & Drop or Select CSV"]),
-                            style={
-                                "width": "100%", "height": "40px",
-                                "borderWidth": "1px", "borderStyle": "dashed",
-                                "borderRadius": "5px", "textAlign": "center"
-                            }
-                        ),
-                        dcc.Loading(
-                            id="loading-upload",
-                            type="dot",
-                            children=html.Div(id="upload-status")
-                        ),
-                        dcc.Store(id="upload-done", data=False),
-                        html.Br(),
-                        html.Button(
-                            "Download Schedule CSV",
-                            id="Schedule Button",
-                            n_clicks=0,
-                            style={"width": "100%"}
-                        ),
-                        dcc.Download(id="download-schedule"),
-                    ],
-                    style={"display": "none"}
-                ),
+            # ── Past Controls (only when “Past Data” is chosen) ───────────────────
+            html.Div(
+                id="past-controls",
+                children=[
+                    html.Label("Date Range (Year)"),
+                    dcc.RangeSlider(
+                        id="past-range",
+                        min=2021,
+                        max=2025,
+                        step=1,
+                        marks={y: str(y) for y in range(2021, 2026)},
+                        value=[2021, 2025]
+                    ),
+                ]
+            ),
 
-                # ── Allocation Controls ──────────────────────────────────────────────
-                html.Div(
-                    id="alloc-controls",
-                    children=[
-                        html.P("Allocation view will appear below as a table.")
-                    ],
-                    style={"display": "none"}
-                ),
+            # ── Predicted Controls (only when “Predicted Data”) ─────────────────
+            html.Div(
+                id="pred-controls",
+                children=[
+                    html.Br(),
+                    html.Button(
+                        "Predict Next Month",
+                        id="predict-button",
+                        n_clicks=0,
+                        style={"width": "100%"}
+                    ),
+                    html.Br(), html.Br(),
+                    html.Label("Upload New Monthly CSV:"),
+                    dcc.Upload(
+                        id="upload-file",
+                        children=html.Div(["Drag & Drop or Select CSV"]),
+                        style={
+                            "width": "100%", "height": "40px",
+                            "borderWidth": "1px", "borderStyle": "dashed",
+                            "borderRadius": "5px", "textAlign": "center"
+                        }
+                    ),
+                    dcc.Loading(
+                        id="loading-upload",
+                        type="dot",
+                        children=html.Div(id="upload-status")
+                    ),
+                    dcc.Store(id="upload-done", data=False),
+                    html.Br(),
+                    html.Button(
+                        "Download Schedule CSV",
+                        id="Schedule Button",
+                        n_clicks=0,
+                        style={"width": "100%"}
+                    ),
+                    dcc.Download(id="download-schedule"),
+                ],
+                style={"display": "none"}
+            ),
 
-                html.Hr(),
+            # ── Allocation Controls ──────────────────────────────────────────────
+            html.Div(
+                id="alloc-controls",
+                children=[
+                    html.P("Allocation view will appear below as a table.")
+                ],
+                style={"display": "none"}
+            ),
 
-                # ── Search by Ward Name or Code ────────────────────────────────────
-                html.Label("Search Ward by Name or Code"),
-                dcc.Input(
-                    id="ward-search-input",
-                    type="text",
-                    placeholder="e.g. Camden Town or E05000405",
-                    style={"width": "70%"}
-                ),
-                html.Button(
-                    "Go",
-                    id="ward-search-button",
-                    n_clicks=0,
-                    style={"margin-left": "10px"}
-                ),
-                html.Br(), html.Br(),
+            html.Hr(),
 
-                # ── Back Button (when a ward is selected) ──────────────────────────
-                html.Button(
-                    "← Back to Wards",
-                    id="back-button",
-                    n_clicks=0,
-                    style={"display": "none", "width": "100%"}
-                ),
-                html.Br(), html.Br(),
+            # ── Search by Ward Name or Code ────────────────────────────────────
+            html.Label("Search Ward by Name or Code"),
+            dcc.Input(
+                id="ward-search-input",
+                type="text",
+                placeholder="e.g. Camden Town or E05000405",
+                style={"width": "70%"}
+            ),
+            html.Button(
+                "Go",
+                id="ward-search-button",
+                n_clicks=0,
+                style={"margin-left": "10px"}
+            ),
+            html.Br(), html.Br(),
 
-                # ── Apply Button ───────────────────────────────────────────────────
-                html.Button(
-                    "Apply",
-                    id="apply-button",
-                    n_clicks=0,
-                    style={"width": "100%"}
-                ),
-                
-                html.Button("Perception Analysis",
-                            id="btn-perception",
-                            n_clicks=0,
-                            style={"width":"100%", "marginBottom":"1em"}),
-            ],
-            style=SIDEBAR_STYLE
-        ),
+            # ── Back Button (when a ward is selected) ──────────────────────────
+            html.Button(
+                "← Back to Wards",
+                id="back-button",
+                n_clicks=0,
+                style={"display": "none", "width": "100%"}
+            ),
+            html.Br(), html.Br(),
 
-        # ── Main content: maps + (optional) allocation table ───────────────────────
-        html.Div(
-            id="page-content",
-            style=CONTENT_STYLE,
-            children=[
-                html.Div(
-                    id="map-container",
-                    style=MAP_CONTAINER,
-                    children=[
-                        dcc.Graph(id="map-ward", style=FULL_MAP_STYLE),
-                        dcc.Graph(id="map-lsoa", style={**HALF_MAP_STYLE, "display": "none"})
-                    ]
-                ),
-                html.Div(
-                    id="allocation-table-container",
-                    style={"margin-top": "20px"}
-                )
-            ]
-        ),
-        
-            # ─── Perception Analysis “modal” ────────────────────────────────────────
-        html.Div(
-            id="perception-window",
-            style={
-                "position": "fixed",
-                "top": "5%",
-                "left": "10%",
-                "width": "80%",
-                "height": "90%",
-                "backgroundColor": "white",
-                "zIndex": 2000,
-                "overflow": "auto",
-                "boxShadow": "0 4px 8px rgba(0,0,0,0.2)",
-                "display": "none"   # start hidden
-            },
-            children=[
-                html.Button("Close", id="close-perception", style={"float":"right"}),
-                html.H3("Perception vs Predicted Burglaries"),
-                dcc.Graph(id="perception-graph")
-            ]
-        )
-    ]),
-)
+            # ── Apply Button ───────────────────────────────────────────────────
+            html.Button(
+                "Apply",
+                id="apply-button",
+                n_clicks=0,
+                style={"width": "100%"}
+            ),
+            
+            html.Button("Perception Analysis",
+                        id="btn-perception",
+                        n_clicks=0,
+                        style={"width":"100%", "marginBottom":"1em"}),
+        ],
+        style=SIDEBAR_STYLE
+    ),
+
+    # ── Main content: maps + (optional) allocation table ───────────────────────
+    html.Div(
+        id="page-content",
+        style=CONTENT_STYLE,
+        children=[
+            html.Div(
+                id="map-container",
+                style=MAP_CONTAINER,
+                children=[
+                    dcc.Graph(id="map-ward", style=FULL_MAP_STYLE),
+                    dcc.Graph(id="map-lsoa", style={**HALF_MAP_STYLE, "display": "none"})
+                ]
+            ),
+            html.Div(
+                id="allocation-table-container",
+                style={"margin-top": "20px"}
+            )
+        ]
+    ),
+    
+        # ─── Perception Analysis “modal” ────────────────────────────────────────
+    html.Div(
+        id="perception-window",
+        style={
+            "position": "fixed",
+            "top": "5%",
+            "left": "10%",
+            "width": "80%",
+            "height": "90%",
+            "backgroundColor": "white",
+            "zIndex": 2000,
+            "overflow": "auto",
+            "boxShadow": "0 4px 8px rgba(0,0,0,0.2)",
+            "display": "none"   # start hidden
+        },
+        children=[
+            html.Button("Close", id="close-perception", style={"float":"right"}),
+            html.H3("Perception vs Predicted Burglaries"),
+            dcc.Graph(id="perception-graph")
+        ]
+    )
+])
 
 
 # ─── 5) Callbacks ─────────────────────────────────────────────────────────────
