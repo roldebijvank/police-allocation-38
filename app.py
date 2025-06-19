@@ -588,11 +588,12 @@ def update_model_with_new_data(new_df: pd.DataFrame):
         'income_score_rate', 'barriers_to_housing_and_services_score', 'education_skills_and_training_score',
         'quarter', 'month_num', 'lsoa_name', 'health_deprivation_and_disability_score', 'living_environment_score',
     }
-    features = [c for c in new_df.columns if c not in exclude_cols]
     target_col = "burglary_count"
     
     trained_features = scaler.feature_names_in_.tolist()
-    print(new_df.columns)
+    print("Trained features:", trained_features)
+    
+    print("New DataFrame columns:", new_df.columns.tolist())
     X_sorted_cols = new_df[trained_features] 
 
     X_new = scaler.transform(X_sorted_cols)
