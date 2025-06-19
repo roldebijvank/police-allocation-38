@@ -27,7 +27,9 @@ import psycopg2
 from flask import Flask, Response, send_from_directory
 
 # DATABASE_URL = os.environ["MOD_DATABASE_URL"]
-DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
+# DATABASE_URL = "postgresql://u545vrchmpkusg:pe3cefd19da567e5237b32fd7fc59b174e6d7c0f2152b1630387a90ff8bb285be@cdpgdh08larb23.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/dc6jj0eqpql1ea"
+
+DATABASE_URL = os.environ["DB_URL"]
 
 if not DATABASE_URL:
     raise ValueError("HEROKU_DB_URL is not set in the environment.")
