@@ -383,7 +383,7 @@ def handle_upload(contents, filename):
         
         print("Difference: ", set(df_master.columns) - set(clean_df.columns))
         if sorted(df_master.columns) != sorted(clean_df.columns):
-            return html.Div("Uploaded CSV columns do not match master CSV columns.")
+            return html.Div("Uploaded CSV columns do not match master CSV columns."), no_update
 
         # Ensure no duplicates
         clean_df["month"] = pd.to_datetime(clean_df["month"])
@@ -396,7 +396,7 @@ def handle_upload(contents, filename):
         clean_df = clean_df[~clean_df.set_index(["lsoa_code", "month"]).index.isin(existing_index)]
         # print if any rows were removed
         if len(clean_df) < prev_len_clean:
-            return html.Div("Data already exists, no new rows added.")
+            return html.Div("Data already exists, no new rows added."), no_update
         
         # add to postgres
         update_model_with_new_data(clean_df)
