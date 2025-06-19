@@ -359,7 +359,7 @@ def toggle_mode_controls(mode):
     elif mode == "pred":
         return {"display": "none"}, {}, {"display": "none"}
     elif mode == "pred_vs_perceived":
-        return {"display": "none"}, {}, {"display": "none"}
+        return {"display": "none"}, {"display": "none"}, {"display": "none"}
     elif mode == "alloc":
         return {"display": "none"}, {"display": "none"}, {}
     return {}, {"display": "none"}, {"display": "none"}
