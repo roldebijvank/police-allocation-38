@@ -1285,11 +1285,6 @@ def generate_map(mode, selected_ward, level, past_range=None):
 #     output_path = os.path.join(output_dir, f"All_wards_patrol_schedule.csv")
 #     full_schedule_df.to_csv(output_path, index=False)
 
-def get_ward_schedule(Ward_name): #This only works if Generate_schedules has run already
-    full_schedule_df = pd.read_csv(os.path.join("allocations", f"All_wards_patrol_schedule.csv"))
-    first_col = full_schedule_df.columns[0]
-    return full_schedule_df[full_schedule_df[first_col].str.startswith(f"{Ward_name}_Officer_")].copy()
-
 @app.callback(
     Output("Schedule Button", "children"),
     Input("selected-ward", "data")
@@ -1308,11 +1303,14 @@ def update_button_label(selected_ward):
     prevent_initial_call=True
 )
 def download_schedule(n_clicks, selected_ward):
+    if n_clicks == 0:
+        raise PreventUpdate
+    
     if not selected_ward:
         df = pd.read_csv(os.path.join("allocations", "All_wards_patrol_schedule.csv"))
         return dcc.send_data_frame(df.to_csv, "All_wards_patrol_schedule.csv", index=False)
     else:
-        selected_ward_name = map_wards_function(selected_ward) # <--need the mapping fucntion to get ward_name
+        selected_ward_name = map_wards_function(selected_ward)
         ward_df = get_ward_schedule(selected_ward_name)
         filename = f"{selected_ward_name}_patrol_schedule.csv"
         return dcc.send_data_frame(ward_df.to_csv, filename, index=False)
@@ -1320,6 +1318,11 @@ def download_schedule(n_clicks, selected_ward):
 def map_wards_function(selected_ward):
     print(f"Selected ward: {selected_ward}")
     return ward_gdf[ward_gdf['GSS_Code'] == selected_ward]['Name'].values[0]
+
+def get_ward_schedule(Ward_name): #This only works if Generate_schedules has run already
+    full_schedule_df = pd.read_csv(os.path.join("allocations", f"All_wards_patrol_schedule.csv"))
+    first_col = full_schedule_df.columns[0]
+    return full_schedule_df[full_schedule_df[first_col].str.startswith(f"{Ward_name}_Officer_")].copy()
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 8050)))
