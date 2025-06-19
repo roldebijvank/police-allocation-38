@@ -1318,6 +1318,7 @@ def download_schedule(n_clicks, selected_ward):
         return dcc.send_data_frame(ward_df.to_csv, filename, index=False)
     
 def map_wards_function(selected_ward):
+    print(f"Selected ward: {selected_ward}")
     return ward_gdf[ward_gdf['GSS_Code'] == selected_ward]['Name'].values[0]
 
 if __name__ == "__main__":
