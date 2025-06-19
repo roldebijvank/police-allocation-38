@@ -234,6 +234,7 @@ app.layout = html.Div([
                         n_clicks=0,
                         style={"width": "100%"}
                     ),
+                    dcc.Download(id="download-schedule"),
                 ],
                 style={"display": "none"}
             ),
@@ -893,10 +894,12 @@ def generate_map(mode, selected_ward, level, past_range=None):
             labels={"count":"Burglary Count"},
         )
         lsoa_fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        #map code to name
+        #get_ward_schedule(wardname)
 
-        alloc_path = os.path.join("allocations", f"{selected_code}.csv")
+        alloc_path = os.path.join("allocations", f"All_wards_patrol_schedule.csv")
         if os.path.exists(alloc_path):
-            df_alloc = pd.read_csv(alloc_path)
+            df_alloc = get_ward_schedule(map_wards_function(selected_ward)) # REPLACE HERE
             alloc_table = dash_table.DataTable(
                 data=df_alloc.to_dict("records"),
                 columns=[{"name":c,"id":c} for c in df_alloc.columns],
@@ -1299,20 +1302,23 @@ def update_button_label(selected_ward):
         return f"Download {ward_mapping.get(ward_code, ward_code)} Schedule"
 
 @app.callback(
+    Output("download-schedule", "data"),
     Input("Schedule Button", "n_clicks"),
     State("selected-ward", "data"),
     prevent_initial_call=True
 )
 def download_schedule(n_clicks, selected_ward):
-    DATA_DIR = "allocations"
     if not selected_ward:
-        # Serve full schedule
-        path = os.path.join(DATA_DIR, "All_wards_patrol_schedule.csv")
-        return dcc.send_file(path)
+        df = pd.read_csv(os.path.join("allocations", "All_wards_patrol_schedule.csv"))
+        return dcc.send_data_frame(df.to_csv, "All_wards_patrol_schedule.csv", index=False)
     else:
-        ward = get_ward_schedule(selected_ward)
-        ward.to_csv(DATA_DIR, f"{selected_ward}_patrol_schedule")
-        return dcc.send_file(DATA_DIR, f"{selected_ward}_patrol_schedule")
+        selected_ward_name = map_wards_function(selected_ward) # <--need the mapping fucntion to get ward_name
+        ward_df = get_ward_schedule(selected_ward_name)
+        filename = f"{selected_ward_name}_patrol_schedule.csv"
+        return dcc.send_data_frame(ward_df.to_csv, filename, index=False)
+    
+def map_wards_function(selected_ward):
+    return ward_code[ward_code['GSS_Code'] == selected_ward]['Name'].values[0]
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 8050)))
