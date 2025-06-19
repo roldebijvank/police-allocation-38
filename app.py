@@ -899,7 +899,7 @@ def generate_map(mode, selected_ward, level, past_range=None):
 
         alloc_path = os.path.join("allocations", f"All_wards_patrol_schedule.csv")
         if os.path.exists(alloc_path):
-            df_alloc = get_ward_schedule(map_wards_function(selected_ward)) # REPLACE HERE
+            df_alloc = get_ward_schedule(map_wards_function(selected_ward.get("code"))) # REPLACE HERE
             alloc_table = dash_table.DataTable(
                 data=df_alloc.to_dict("records"),
                 columns=[{"name":c,"id":c} for c in df_alloc.columns],
