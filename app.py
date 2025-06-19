@@ -367,7 +367,7 @@ def handle_upload(contents, filename):
     if contents is None:
         raise PreventUpdate
     if not filename.endswith(".csv"):
-        return html.Div("Please upload a valid CSV file."), no_update
+        return html.Div("Please upload a valid CSV file."), True
     
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
@@ -383,7 +383,7 @@ def handle_upload(contents, filename):
         
         print("Difference: ", set(df_master.columns) - set(clean_df.columns))
         if sorted(df_master.columns) != sorted(clean_df.columns):
-            return html.Div("Uploaded CSV columns do not match master CSV columns."), no_update
+            return html.Div("Uploaded CSV columns do not match master CSV columns."), True
 
         # Ensure no duplicates
         clean_df["month"] = pd.to_datetime(clean_df["month"])
@@ -396,7 +396,7 @@ def handle_upload(contents, filename):
         clean_df = clean_df[~clean_df.set_index(["lsoa_code", "month"]).index.isin(existing_index)]
         # print if any rows were removed
         if len(clean_df) < prev_len_clean:
-            return html.Div("Data already exists, no new rows added."), no_update
+            return html.Div("Data already exists, no new rows added."), True
         
         # add to postgres
         update_model_with_new_data(clean_df)
@@ -407,17 +407,18 @@ def handle_upload(contents, filename):
     except Exception as e:
         print("Error details:", e)
         traceback.print_exc()
-        return html.Div("Error: could not read uploaded CSV."), no_update
+        return html.Div("Error: could not read uploaded CSV."), True
     
 @app.callback(
     Output("upload-file", "contents"),
     Output("upload-file", "filename"),
+    Output("upload-done", "data"),
     Input("upload-done", "data"),
     prevent_initial_call=True
 )
 def reset_upload(upload_done):
     if upload_done:
-        return None, None  # This clears the component
+        return None, None, False  # This clears the component
     raise PreventUpdate
 
 @app.callback(
