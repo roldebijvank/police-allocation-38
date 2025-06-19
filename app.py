@@ -363,7 +363,7 @@ def toggle_mode_controls(mode):
 )
 def handle_upload(contents, filename):
     if contents is None:
-        raise PreventUpdate
+        return html.Div("Drag & Drop or Select CSV")
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
@@ -372,8 +372,6 @@ def handle_upload(contents, filename):
         print("df_new created")
         clean_df = clean_new_dataset(df_new)
         print("clean_df created")
-        update_model_with_new_data(clean_df)
-        print("model updated")
         
         df_master = pd.read_sql("SELECT * FROM crime_data", con=engine)
 
@@ -397,6 +395,8 @@ def handle_upload(contents, filename):
             return html.Div("Data already exists, no new rows added.")
         
         # add to postgres
+        update_model_with_new_data(clean_df)
+        print("model updated")
         clean_df.to_sql("crime_data", con=engine, if_exists="append", index=False)
 
         return html.Div("New data uploaded successfully.")
