@@ -1310,7 +1310,7 @@ def download_schedule(n_clicks, selected_ward):
         df = pd.read_csv(os.path.join("allocations", "All_wards_patrol_schedule.csv"))
         return dcc.send_data_frame(df.to_csv, "All_wards_patrol_schedule.csv", index=False)
     else:
-        selected_ward_name = map_wards_function(selected_ward)
+        selected_ward_name = map_wards_function(selected_ward.get("code"))
         ward_df = get_ward_schedule(selected_ward_name)
         filename = f"{selected_ward_name}_patrol_schedule.csv"
         return dcc.send_data_frame(ward_df.to_csv, filename, index=False)
